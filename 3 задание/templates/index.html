@@ -1,0 +1,613 @@
+<!--страничку верстал ИИ-->>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETL Producer - Отправка данных в БД через Kafka</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+        
+        .tab-button {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab-button:hover {
+            color: #667eea;
+        }
+        
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            font-weight: 600;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input[type="text"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+        
+        textarea {
+            min-height: 120px;
+            font-family: monospace;
+            resize: vertical;
+        }
+        
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .help-text {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .examples {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .examples h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .examples code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        .submit-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+        
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .submit-button:active {
+            transform: translateY(0);
+        }
+        
+        .submit-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        .status-bar {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .status-dot.connected {
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.disconnected {
+            background: #dc3545;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .data-preview {
+            margin-top: 10px;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                border-radius: 0;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab-button {
+                text-align: left;
+                border-bottom: 1px solid #e0e0e0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ETL Producer - Лабораторная работа №3</h1>
+            <p class="subtitle">Отправка данных в PostgreSQL через Apache Kafka</p>
+        </header>
+        
+        <div class="content">
+            <div class="status-bar">
+                <div>
+                    <strong>Статус подключения:</strong>
+                    <span class="status-indicator">
+                        <span class="status-dot" id="kafkaStatus"></span>
+                        <span id="kafkaStatusText">Проверка...</span>
+                    </span>
+                </div>
+                <div>
+                    <button onclick="checkHealth()" style="padding: 5px 15px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        Проверить соединение
+                    </button>
+                </div>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchTab('manual')">📝 Ручной ввод</button>
+                <button class="tab-button" onclick="switchTab('csv')">📄 CSV файл</button>
+                <button class="tab-button" onclick="switchTab('json')">📋 JSON файл</button>
+            </div>
+            
+            <form id="dataForm" onsubmit="sendData(event)">
+                <!-- Общие поля -->
+                <div class="form-group">
+                    <label for="table_name">Название таблицы:</label>
+                    <input type="text" id="table_name" name="table_name" required 
+                           pattern="[a-zA-Z_][a-zA-Z0-9_]*"
+                           placeholder="например: students, employees, products"
+                           title="Имя таблицы должно начинаться с буквы или подчеркивания">
+                    <div class="help-text">Только латинские буквы, цифры и подчеркивания. Первый символ - буква или _</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="columns">Столбцы (JSON формат):</label>
+                    <textarea id="columns" name="columns" required>
+[
+    {"name": "id", "type": "integer"},
+    {"name": "name", "type": "text"},
+    {"name": "age", "type": "integer"},
+    {"name": "salary", "type": "float"},
+    {"name": "is_active", "type": "boolean"},
+    {"name": "hire_date", "type": "date"}
+]</textarea>
+                    <div class="help-text">
+                        Поддерживаемые типы: text, integer, float, boolean, date
+                    </div>
+                </div>
+                
+                <div id="manual-tab" class="tab-content active">
+                    <div class="form-group">
+                        <label for="data">Данные (JSON формат):</label>
+                        <textarea id="data" name="data">
+[
+    {"id": 1, "name": "Иван Иванов", "age": 30, "salary": 50000.50, "is_active": true, "hire_date": "2023-01-15"},
+    {"id": 2, "name": "Мария Петрова", "age": 25, "salary": 45000.75, "is_active": true, "hire_date": "2023-03-20"},
+    {"id": 3, "name": "Алексей Сидоров", "age": 35, "salary": 60000.00, "is_active": false, "hire_date": "2022-11-10"}
+]</textarea>
+                        <div class="help-text">
+                            Каждая строка - объект. Ключи должны совпадать с именами столбцов.
+                        </div>
+                    </div>
+                    
+                    <div class="examples">
+                        <h4>Пример данных:</h4>
+                        <pre><code>[
+  {"id": 1, "name": "Product A", "price": 99.99, "in_stock": true},
+  {"id": 2, "name": "Product B", "price": 149.50, "in_stock": false}
+]</code></pre>
+                    </div>
+                </div>
+                
+                <div id="csv-tab" class="tab-content">
+                    <div class="form-group">
+                        <label for="csv_file">Выберите CSV файл:</label>
+                        <input type="file" id="csv_file" name="csv_file" accept=".csv,.txt">
+                        <div class="help-text">
+                            Поддерживаются разделители: запятая, точка с запятой, табуляция.
+                            Первая строка должна содержать заголовки столбцов.
+                        </div>
+                    </div>
+                    
+                    <div id="csvPreview" class="data-preview" style="display: none;">
+                        <strong>Предпросмотр данных:</strong>
+                        <pre id="csvPreviewContent"></pre>
+                    </div>
+                    
+                    <div class="examples">
+                        <h4>Пример CSV:</h4>
+                        <pre><code>id,name,age,salary,is_active,hire_date
+1,Иван Иванов,30,50000.50,true,2023-01-15
+2,Мария Петрова,25,45000.75,true,2023-03-20
+3,Алексей Сидоров,35,60000.00,false,2022-11-10</code></pre>
+                    </div>
+                </div>
+                
+                <div id="json-tab" class="tab-content">
+                    <div class="form-group">
+                        <label for="json_file">Выберите JSON файл:</label>
+                        <input type="file" id="json_file" name="json_file" accept=".json">
+                        <div class="help-text">
+                            Файл должен содержать массив объектов.
+                        </div>
+                    </div>
+                    
+                    <div id="jsonPreview" class="data-preview" style="display: none;">
+                        <strong>Предпросмотр данных:</strong>
+                        <pre id="jsonPreviewContent"></pre>
+                    </div>
+                </div>
+                
+                <input type="hidden" name="data_type" id="data_type" value="manual">
+                
+                <button type="submit" class="submit-button" id="submitBtn">
+                    📤 Отправить данные в Kafka
+                </button>
+            </form>
+            
+            <div id="message" class="message"></div>
+        </div>
+        
+        <footer>
+            Лабораторная работа №3 - ETL процесс | Kafka + PostgreSQL
+        </footer>
+    </div>
+    
+    <script>
+        let currentTab = 'manual';
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            checkHealth();
+            setupFilePreview();
+        });
+        
+        function switchTab(tabName) {
+            currentTab = tabName;
+            
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+            document.getElementById('data_type').value = tabName;
+
+            hideAllPreviews();
+        }
+        
+        function setupFilePreview() {
+            document.getElementById('csv_file').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const content = e.target.result;
+                        document.getElementById('csvPreviewContent').textContent = content.substring(0, 500) + (content.length > 500 ? '...' : '');
+                        document.getElementById('csvPreview').style.display = 'block';
+                    };
+                    reader.readAsText(file);
+                }
+            });
+            
+            document.getElementById('json_file').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const json = JSON.parse(e.target.result);
+                            document.getElementById('jsonPreviewContent').textContent = JSON.stringify(json, null, 2).substring(0, 1000);
+                            document.getElementById('jsonPreview').style.display = 'block';
+                        } catch (err) {
+                            document.getElementById('jsonPreviewContent').textContent = 'Ошибка: Неверный формат JSON';
+                            document.getElementById('jsonPreview').style.display = 'block';
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            });
+        }
+        
+        function hideAllPreviews() {
+            document.getElementById('csvPreview').style.display = 'none';
+            document.getElementById('jsonPreview').style.display = 'none';
+        }
+        
+        async function checkHealth() {
+            const statusDot = document.getElementById('kafkaStatus');
+            const statusText = document.getElementById('kafkaStatusText');
+            
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                if (data.kafka === 'connected') {
+                    statusDot.className = 'status-dot connected';
+                    statusText.textContent = 'Kafka подключен';
+                    statusText.style.color = '#28a745';
+                } else {
+                    statusDot.className = 'status-dot disconnected';
+                    statusText.textContent = 'Kafka не подключен';
+                    statusText.style.color = '#dc3545';
+                }
+            } catch (error) {
+                statusDot.className = 'status-dot disconnected';
+                statusText.textContent = 'Сервис недоступен';
+                statusText.style.color = '#dc3545';
+            }
+        }
+        
+        async function sendData(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            const submitBtn = document.getElementById('submitBtn');
+            const messageDiv = document.getElementById('message');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Отправка...';
+            
+            messageDiv.className = 'message';
+            messageDiv.textContent = 'Отправка данных...';
+            messageDiv.style.display = 'block';
+            messageDiv.style.background = '#fff3cd';
+            messageDiv.style.color = '#856404';
+            messageDiv.style.borderColor = '#ffeaa7';
+            
+            try {
+                const response = await fetch('/send-data', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    messageDiv.className = 'message success';
+                    messageDiv.innerHTML = `
+                        <strong>✅ Успешно!</strong><br>
+                        ${result.message}<br>
+                        <small>
+                            Таблица: ${result.details.table_name}<br>
+                            Столбцов: ${result.details.columns}<br>
+                            Строк: ${result.details.rows}<br>
+                            Offset: ${result.details.kafka_offset}
+                        </small>
+                    `;
+                    
+                    if (currentTab === 'manual') {
+                        document.getElementById('data').value = '';
+                    } else if (currentTab === 'csv') {
+                        document.getElementById('csv_file').value = '';
+                        document.getElementById('csvPreview').style.display = 'none';
+                    } else if (currentTab === 'json') {
+                        document.getElementById('json_file').value = '';
+                        document.getElementById('jsonPreview').style.display = 'none';
+                    }
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.innerHTML = `
+                        <strong>❌ Ошибка!</strong><br>
+                        ${result.error || 'Произошла ошибка'}
+                    `;
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.innerHTML = `
+                    <strong>❌ Ошибка сети!</strong><br>
+                    ${error.message}
+                `;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '📤 Отправить данные в Kafka';
+                
+                setTimeout(() => {
+                    messageDiv.style.display = 'none';
+                }, 10000);
+            }
+        }
+        
+        function loadExample(exampleType) {
+            switch(exampleType) {
+                case 'products':
+                    document.getElementById('columns').value = `[
+    {"name": "id", "type": "integer"},
+    {"name": "product_name", "type": "text"},
+    {"name": "price", "type": "float"},
+    {"name": "quantity", "type": "integer"},
+    {"name": "category", "type": "text"}
+]`;
+                    document.getElementById('data').value = `[
+    {"id": 1, "product_name": "Ноутбук", "price": 999.99, "quantity": 10, "category": "Электроника"},
+    {"id": 2, "product_name": "Смартфон", "price": 599.50, "quantity": 25, "category": "Электроника"},
+    {"id": 3, "product_name": "Книга", "price": 19.99, "quantity": 100, "category": "Книги"}
+]`;
+                    break;
+                    
+                case 'students':
+                    document.getElementById('columns').value = `[
+    {"name": "student_id", "type": "integer"},
+    {"name": "full_name", "type": "text"},
+    {"name": "course", "type": "integer"},
+    {"name": "average_grade", "type": "float"},
+    {"name": "enrollment_date", "type": "date"}
+]`;
+                    document.getElementById('data').value = `[
+    {"student_id": 101, "full_name": "Анна Смирнова", "course": 2, "average_grade": 4.5, "enrollment_date": "2022-09-01"},
+    {"student_id": 102, "full_name": "Дмитрий Козлов", "course": 3, "average_grade": 3.8, "enrollment_date": "2021-09-01"},
+    {"student_id": 103, "full_name": "Елена Воробьева", "course": 1, "average_grade": 4.2, "enrollment_date": "2023-09-01"}
+]`;
+                    break;
+            }
+            
+            alert(`Пример "${exampleType}" загружен! Теперь можно отправить данные.`);
+        }
+    </script>
+</body>
+</html>
